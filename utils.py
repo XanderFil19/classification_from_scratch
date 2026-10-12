@@ -13,7 +13,7 @@ def cross_entropy(y,y_hat):
 def accuracy(y,y_hat):
     n = len(y)
     acc = np.sum(y == (y_hat >= 0.5).astype(np.int64))
-    return acc / n
+    return round( (acc / n)*100 , 2 )
 
 def forward(w,x):
     return sigmoid( x @ w )
@@ -34,7 +34,6 @@ def binary_classification(X,y,lr,epochs,batch_size=None):
         batch_size = n
 
     for step in range(epochs):
-        
         y_hat = forward(w,Xt)
 
         loss = cross_entropy(y,y_hat)
@@ -45,5 +44,5 @@ def binary_classification(X,y,lr,epochs,batch_size=None):
         w -= lr * dw
 
         if step % 100 == 0:
-            print(f'Epochs {step + 1} | Loss {loss} | Accuracy {acc}')
+            print(f'Epochs {step + 1} | Loss {loss:.4f} | Accuracy {acc} %')
     return w
