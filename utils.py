@@ -28,21 +28,27 @@ class Classifier():
     def add_bias(X):
         n = X.shape[1]
         return np.concat([X, np.ones((1,n))], axis=0)
-    
+
     @staticmethod
     def accuracy(y, y_hat):
-        max = np.argmax( y_hat , axis=0)
-        return np.mean(y == max)
+        return np.mean(y == y_hat)
 
     def onehot(self,y):
         Y = np.zeros((self.q,len(y)))
         Y[ y , np.arange( len(y) ) ] = 1
         return Y
 
+    def classify(self,x):
+        y_pred = self.forward(x)
+        max = np.argmax( y_pred , axis=0)
+        return max
+
     def initialize(self,w_init):
         self.w = w_init
 
-    def forward(self,x):        
+    def forward(self,x):  
+        if x.shape[0] == self.w.shape[-1] - 1:
+            x = self.add_bias(x)
         return self.softmax( self.w @ x )
 
     def fit(self, X, y):
@@ -76,7 +82,6 @@ class Classifier():
                 y_pred = self.forward( X_batch )
     
                 loss = self.cross_entropy( y_batch, y_pred )
-                #acc = self.accuracy(y_batch,y_pred)
     
                 #dreg = self.w.copy()
                 #dreg[-1] = 0
@@ -86,6 +91,7 @@ class Classifier():
     
             if step % 100 == 0:
                 y_pred = self.forward(Xt)
+                y_classified = self.classify(Xt)
                 loss = self.cross_entropy( Yt , y_pred )
-                acc = 100 * self.accuracy( y , y_pred )
+                acc = 100 * self.accuracy(y,y_classified)
                 print(f'Epochs {step + 1} | Loss {loss:.4f} | Accuracy {acc:.2f} %')
