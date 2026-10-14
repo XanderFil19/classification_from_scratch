@@ -3,46 +3,171 @@ from torchvision.datasets import MNIST
 import matplotlib.pyplot as plt
 import pandas as pd
 
-def sigmoid(x):
-    return 1 / ( 1 + np.exp(-x) )
+class Classifier():
 
-def cross_entropy(y,y_hat):
-    epsilon = 1e-9
-    return - np.mean( ( y * np.log( y_hat + epsilon ) + (1 - y) * np.log( 1 - y_hat + epsilon ) ) )
+    def __init__(self , lr , epochs , num_class , lam = 0 , batch_size = None , w = None):
+        self.lr = lr
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.w = w
+        self.lam = lam
+        self.q = num_class
 
-def accuracy(y,y_hat):
-    n = len(y)
-    acc = np.sum(y == (y_hat >= 0.5).astype(np.int64))
-    return round( (acc / n)*100 , 2 )
+    @staticmethod
+    def softmax(x):
+        exp = np.exp(x)
+        return exp / np.sum(exp, axis = 0 , keepdims=True)
+    
+    @staticmethod
+    def cross_entropy(p,q,eps=1e-9):
+        q = np.clip(q, eps, 1 - eps)
+        s = - np.sum( p * np.log(q) , axis=0 )
+        return np.mean( s )
 
-def forward(w,x):
-    return sigmoid( x @ w )
+    @staticmethod
+    def add_bias(X):
+        n = X.shape[1]
+        return np.concat([X, np.ones((1,n))], axis=0)
+    
+    @staticmethod
+    def accuracy(y, y_hat):
+        max = np.argmax( y_hat , axis=0)
+        return np.mean(y == max)
 
-def classify(w,x):
+    def onehot(self,y):
+        Y = np.zeros((self.q,len(y)))
+        Y[ y , np.arange( len(y) ) ] = 1
+        return Y
 
-    n, d = x.shape
-    xt = np.concat( [x, np.ones((n,1))] , axis=1 )
-    out = forward(w,xt)
-    return np.round( out, 0)
+    def initialize(self,w_init):
+        self.w = w_init
 
-def binary_classification(X,y,lr,epochs,batch_size=None):
-    n, d = X.shape
-    w = np.random.randn(d + 1)
-    Xt = np.concat( [X, np.ones((n,1))] , axis=1 )
+    def forward(self,x):        
+        return self.softmax( self.w @ x )
 
-    if batch_size is None:
-        batch_size = n
+    def fit(self, X, y):
 
-    for step in range(epochs):
-        y_hat = forward(w,Xt)
+        d , n = X.shape
 
-        loss = cross_entropy(y,y_hat)
-        acc = accuracy(y,y_hat)
+        if self.w is None:
+            self.w = np.zeros((self.q , d + 1))
 
-        dw = Xt.T @ (y_hat - y) / batch_size
-        
-        w -= lr * dw
+        Xt = self.add_bias(X)
+        Yt = self.onehot(y)
 
-        if step % 100 == 0:
-            print(f'Epochs {step + 1} | Loss {loss:.4f} | Accuracy {acc} %')
-    return w
+        if self.batch_size is None:
+            self.batch_size = n
+    
+        batch_size = self.batch_size
+    
+        for step in range(self.epochs):
+    
+            indexes = np.random.permutation(n)
+    
+            for s in range(0,n,batch_size):
+    
+                batch_idx = indexes[ s : s + batch_size ]
+    
+                X_batch = Xt[ : , batch_idx ]
+                y_batch = Yt[ : , batch_idx ]
+
+                m = len( batch_idx )
+    
+                y_pred = self.forward( X_batch )
+    
+                loss = self.cross_entropy( y_batch, y_pred )
+                #acc = self.accuracy(y_batch,y_pred)
+    
+                #dreg = self.w.copy()
+                #dreg[-1] = 0
+                dw = ( (y_pred - y_batch) @ X_batch.T ) / m
+                
+                self.w -= self.lr * dw
+    
+            if step % 100 == 0:
+                y_pred = self.forward(Xt)
+                loss = self.cross_entropy( Yt , y_pred )
+                acc = 100 * self.accuracy( y , y_pred )
+                print(f'Epochs {step + 1} | Loss {loss:.4f} | Accuracy {acc:.2f} %')
+
+
+
+
+
+class Binary_classifier():
+
+    def __init__(self , lr , epochs , lam = 0 , batch_size = None , w = None):
+        self.lr = lr
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.w = w
+        self.lam = lam
+
+    @staticmethod
+    def sigmoid(x):
+        return 1 / ( 1 + np.exp(-x) )
+
+    @staticmethod
+    def accuracy(y, y_hat):
+        return np.mean(y == (y_hat >= 0.5))
+
+    @staticmethod
+    def add_bias(X):
+        n = X.shape[0]
+        return np.concat([X, np.ones((n, 1))], axis=1)
+
+    def cross_entropy(self , y , y_hat):
+           epsilon = 1e-9
+           return - np.mean( ( y * np.log( y_hat + epsilon ) + (1 - y) * np.log( 1 - y_hat + epsilon ) ) ) + (self.lam/2) * np.dot( self.w[:-1] , self.w[:-1] )
+
+    def forward(self,x):
+        return self.sigmoid( x @ self.w )
+
+    def classify(self,x):
+
+        n, d = x.shape
+        xt = self.add_bias(x)
+        out = self.forward(xt)
+        return (out >= 0.5).astype(int)
+
+    def fit(self,X,y):
+
+        n, d = X.shape
+        if self.w is None:
+            self.w = np.ones((d + 1,self.q))
+        Xt = self.add_bias(X)
+
+        if self.batch_size is None:
+            self.batch_size = n
+
+        batch_size = self.batch_size
+
+        for step in range(self.epochs):
+
+            indexes = np.random.permutation(n)
+
+            for s in range(0,n,batch_size):
+
+                batch_idx = indexes[ s : s + batch_size ]
+
+                X_batch = Xt[ batch_idx , : ]
+                y_batch = y[ batch_idx ]
+
+                m = len( y_batch )
+
+                y_hat = self.forward(X_batch)
+
+                loss = self.cross_entropy(y_batch,y_hat)
+                acc = self.accuracy(y_batch,y_hat)
+
+                dreg = self.w.copy()
+                dreg[-1] = 0
+                dw = X_batch.T @ (y_hat - y_batch) / m + self.lam * dreg
+                
+                self.w -= self.lr * dw
+
+            if step % 100 == 0:
+                y_hat = self.forward(Xt)
+                loss = self.cross_entropy( y , y_hat )
+                acc = 100 * self.accuracy( y , y_hat )
+                print(f'Epochs {step + 1} | Loss {loss:.4f} | Accuracy {acc:.2f} %')
