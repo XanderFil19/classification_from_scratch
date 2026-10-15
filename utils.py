@@ -15,7 +15,7 @@ class Classifier():
 
     @staticmethod
     def softmax(x):
-        exp = np.exp(x)
+        exp = np.exp(x - np.max(x,axis=0))
         return exp / np.sum(exp, axis = 0 , keepdims=True)
     
     @staticmethod
@@ -89,9 +89,29 @@ class Classifier():
                 
                 self.w -= self.lr * dw
     
-            if step % 100 == 0:
+            if step % 2 == 0:
                 y_pred = self.forward(Xt)
                 y_classified = self.classify(Xt)
                 loss = self.cross_entropy( Yt , y_pred )
                 acc = 100 * self.accuracy(y,y_classified)
                 print(f'Epochs {step + 1} | Loss {loss:.4f} | Accuracy {acc:.2f} %')
+
+    def evaluate(self,X,y):
+
+        y_pred = self.forward(X)
+        y_pred_classified = self.classify(X)
+
+        if len(y) == y.size:
+            y_one_hot = self.onehot(y)
+
+            loss = self.cross_entropy( y_one_hot , y_pred )
+            accuracy = 100 * self.accuracy( y , y_pred_classified)
+        else:
+            y_class = self.classify(y)
+
+            loss = self.cross_entropy( y , y_pred )
+            accuracy = 100 * self.accuracy( y_class , y_pred_classified)
+
+        print(f'Evaluation loss: {loss:.4f} | Evaluation accuracy: {accuracy:.2f} %')
+
+        return loss, accuracy
