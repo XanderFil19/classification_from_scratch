@@ -2,6 +2,7 @@ import numpy as np
 from torchvision.datasets import MNIST
 import matplotlib.pyplot as plt
 import pandas as pd
+import os
 
 class Classifier():
 
@@ -51,7 +52,7 @@ class Classifier():
             x = self.add_bias(x)
         return self.softmax( self.w @ x )
 
-    def fit(self, X, y):
+    def fit(self, X, y,return_metrics = False, plot_metrics = True ):
 
         d , n = X.shape
 
@@ -61,11 +62,13 @@ class Classifier():
         Xt = self.add_bias(X)
         Yt = self.onehot(y)
 
-        if self.batch_size is None:
-            self.batch_size = n
-    
-        batch_size = self.batch_size
-    
+        batch_size = n if self.batch_size is None else self.batch_size
+
+        if return_metrics:
+            loss_curve = { }
+            acc_curve = { }
+            
+
         for step in range(self.epochs):
     
             indexes = np.random.permutation(n)
@@ -89,12 +92,20 @@ class Classifier():
                 
                 self.w -= self.lr * dw
     
-            if step % 2 == 0:
+            if step % 10 == 0:
                 y_pred = self.forward(Xt)
                 y_classified = self.classify(Xt)
                 loss = self.cross_entropy( Yt , y_pred )
                 acc = 100 * self.accuracy(y,y_classified)
+                if return_metrics:
+                    loss_curve[step + 1] = loss
+                    acc_curve[step + 1] = acc
                 print(f'Epochs {step + 1} | Loss {loss:.4f} | Accuracy {acc:.2f} %')
+
+        if return_metrics:
+            loss_df = pd.Series(loss_curve,name='Training loss')
+            acc_df = pd.Series(acc_curve,name='Training accuracy')
+            return loss_df, acc_df
 
     def evaluate(self,X,y):
 
