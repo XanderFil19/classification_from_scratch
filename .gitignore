@@ -2,4 +2,3 @@ data/
 kaggle.json
 *.json
 .env
-data_loader.py
