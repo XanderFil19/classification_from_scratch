@@ -63,12 +63,10 @@ class Classifier():
         Yt = self.onehot(y)
 
         batch_size = n if self.batch_size is None else self.batch_size
-
-        if return_metrics:
-            loss_curve = { }
-            acc_curve = { }
+        
+        loss_curve = { } 
+        acc_curve = { }
             
-
         for step in range(self.epochs):
     
             indexes = np.random.permutation(n)
@@ -95,16 +93,42 @@ class Classifier():
             if step % 10 == 0:
                 y_pred = self.forward(Xt)
                 y_classified = self.classify(Xt)
+
                 loss = self.cross_entropy( Yt , y_pred )
                 acc = 100 * self.accuracy(y,y_classified)
-                if return_metrics:
-                    loss_curve[step + 1] = loss
-                    acc_curve[step + 1] = acc
+
+                loss_curve[step + 1] = loss
+                acc_curve[step + 1] = acc
+
                 print(f'Epochs {step + 1} | Loss {loss:.4f} | Accuracy {acc:.2f} %')
 
+        loss_df = pd.Series(loss_curve,name='Training loss')
+        acc_df = pd.Series(acc_curve,name='Training accuracy')
+
+        if plot_metrics:
+
+            plt.style.use('seaborn-v0_8')
+            os.makedirs('./figures',exist_ok=True)
+
+            plt.figure(figsize=(10,6))
+            plt.plot( loss_df , 'o-', linewidth = 2 ,color = '#244785' )
+            plt.xlabel('Epoch',fontsize=13)
+            plt.ylabel(r'$\mathcal{L}$',fontsize=15)
+            plt.grid(True)
+            plt.title('Training cross-entropy loss',fontsize = 15, fontweight='bold')
+            plt.savefig('./figures/MNIST_training_loss')
+            plt.show()
+
+            plt.figure(figsize=(10,6))
+            plt.plot( acc_df , 's-', linewidth = 2 ,color = '#244785')
+            plt.xlabel('Epoch',fontsize=13)
+            plt.ylabel('Accuracy (%)',fontsize=13)
+            plt.grid(True)
+            plt.title('Training accuracy',fontsize = 15, fontweight='bold')
+            plt.savefig('./figures/MNIST_training_accuracy.png' , )
+            plt.show()
+
         if return_metrics:
-            loss_df = pd.Series(loss_curve,name='Training loss')
-            acc_df = pd.Series(acc_curve,name='Training accuracy')
             return loss_df, acc_df
 
     def evaluate(self,X,y):
